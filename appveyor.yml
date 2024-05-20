@@ -14,7 +14,7 @@ install:
 - pip install -r requirements.txt
 
 build_script:
-- flet pack main.py --name counter --icon icon.png --product-name counter --product-version "1.2.3" --copyright "Copyright (c) 2022 YourCompany Inc."
+- flet pack main.py --name bts-nfcreader --icon icon.png --product-name bts-nfcreader --product-version "1.2.3" --copyright "Copyright (c) 2022 YourCompany Inc."
 
 test: off
 
@@ -32,27 +32,27 @@ for:
 -
   matrix:
     only:
-    - image: Visual Studio 2019
+    - image: Visual Studio 2022
 
   after_build:
-  - 7z a counter-windows.zip %CD%\dist\*.exe
+  - 7z a bts-nfcreader-windows.zip %CD%\dist\*.exe
 
   artifacts:
-  - path: counter-windows.zip
+  - path: bts-nfcreader-windows.zip
 
 #
 #   macOS package
 # 
--
-  matrix:
-    only:
-    - image: macOS
+# -
+#   matrix:
+#     only:
+#     - image: macOS
 
-  after_build:
-  - tar -czvf counter-macos.tar.gz -C dist counter.app
+#   after_build:
+#   - tar -czvf bts-nfcreader-macos.tar.gz -C dist bts-nfcreader.app
 
-  artifacts:
-  - path: counter-macos.tar.gz
+#   artifacts:
+#   - path: bts-nfcreader-macos.tar.gz
 
 #
 #   Linux package
@@ -61,9 +61,13 @@ for:
   matrix:
     only:
     - image: Ubuntu
-
+  
+  before_build:
+  - sudo apt install libpcsclite
+  
   after_build:
-  - tar -czvf counter-linux.tar.gz -C dist counter
+  - tar -czvf bts-nfcreader-linux.tar.gz -C dist bts-nfcreader
 
   artifacts:
-  - path: counter-linux.tar.gz
+  - path: bts-nfcreader-linux.tar.gz
+  
