@@ -1,19 +1,23 @@
 image:
-- Ubuntu
+  - Ubuntu
 
 skip_branch_with_pr: true
 stack: python 3.12
 
+platform:
+  - ARM
+
 # environment:
 #   GITHUB_TOKEN:
 #     secure: Ti46nPnZgFh0nRteU6ma0EhJnCTW7PaMn9hnnewZl4gBFPyRQnXNCwGog02+MRLX
+before_build:
+  - sudo apt install libpcsclite-dev
 
 install:
-- sudo apt install libpcsclite-dev
-- pip install -r requirements.txt
+  - pip install -r requirements.txt
 
 build_script:
-- flet pack main.py --name bts-nfcreader --icon icon.png --product-name bts-nfcreader --product-version "1.2.3" --copyright "Copyright (c) 2022 Klepon Tech."
+  - flet pack main.py --name bts-nfcreader --icon icon.png --product-name bts-nfcreader --product-version "1.2.3" --copyright "Copyright (c) 2022 Klepon Tech."
 
 # test: off
 
@@ -60,9 +64,6 @@ for:
   matrix:
     only:
     - image: Ubuntu
-  
-  before_build:
-  - sudo apt install libpcsclite-dev
 
   after_build:
   - tar -czvf bts-nfcreader-linux.tar.gz -C dist bts-nfcreader
