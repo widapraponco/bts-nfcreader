@@ -13,9 +13,7 @@ platform:
 
 install:
   - pip install --upgrade pip
-  - pip install wheel
-  - pip install Cmake
-  - sudo apt install libpcsclite-dev
+  - sudo apt install libpcsclite-dev libusb-dev pcscd libccid
   - pip install -r requirements.txt
 
 build_script:
