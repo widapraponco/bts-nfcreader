@@ -1,0 +1,4 @@
+flet==0.22.*
+py122u==2.3.5
+python-socketio==5.11.2
+eventlet==0.36.1
