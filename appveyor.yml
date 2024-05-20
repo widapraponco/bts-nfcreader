@@ -1,6 +1,4 @@
 image:
-- Visual Studio 2019
-- macOS
 - Ubuntu
 
 skip_branch_with_pr: true
@@ -28,17 +26,17 @@ deploy:
 #
 #   Windows package
 # 
-for:
--
-  matrix:
-    only:
-    - image: Visual Studio 2022
+# for:
+# -
+#   matrix:
+#     only:
+#     - image: Visual Studio 2022
 
-  after_build:
-  - 7z a bts-nfcreader-windows.zip %CD%\dist\*.exe
+#   after_build:
+#   - 7z a bts-nfcreader-windows.zip %CD%\dist\*.exe
 
-  artifacts:
-  - path: bts-nfcreader-windows.zip
+#   artifacts:
+#   - path: bts-nfcreader-windows.zip
 
 #
 #   macOS package
@@ -63,8 +61,8 @@ for:
     - image: Ubuntu
   
   before_build:
-  - sudo apt install libpcsclite
-  
+  - sudo apt install libpcsclite-dev
+
   after_build:
   - tar -czvf bts-nfcreader-linux.tar.gz -C dist bts-nfcreader
 
