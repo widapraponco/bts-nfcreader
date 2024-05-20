@@ -13,7 +13,7 @@ platform:
 
 install:
   - pip install --upgrade pip
-  - sudo apt install libpcsclite-dev libusb-dev pcscd libccid
+  - sudo apt install libpcsclite-dev pcscd libccid
   - pip install -r requirements.txt
 
 build_script:
