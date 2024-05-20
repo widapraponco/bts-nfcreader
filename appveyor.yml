@@ -13,6 +13,7 @@ platform:
 
 install:
   - pip install --upgrade pip
+  - pip install wheel
   - pip install Cmake
   - sudo apt install libpcsclite-dev
   - pip install -r requirements.txt
