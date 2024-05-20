@@ -2,7 +2,7 @@ image:
   - Ubuntu
 
 skip_branch_with_pr: true
-stack: python 3.12
+stack: python 3.10
 
 platform:
   - ARM
