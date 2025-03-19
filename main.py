@@ -1,19 +1,34 @@
 import flet as ft
+import usb.core
 from py122u import nfc
 import socketio
 import eventlet
 from smartcard.util import toHexString
+from escpos.printer import Usb
+from time import strftime
+import asyncio
+import os
 
-sio = socketio.Server(async_mode='eventlet',cors_allowed_origins=[
-    'http://localhost:4200',
-    'https://btstrans-d4879.firebaseapp.com'
-])
+VALID_TOKENS = {"klepontech123123!"}
+
+def is_nfc_reader_connected():
+    dev = usb.core.find(idVendor=0x072F, idProduct=0x2200)
+    return dev is not None
+
+def is_ecspos_connected():
+    dev = usb.core.find(idVendor=0x04b8, idProduct=0x0202)
+    return dev is not None
+
+sio = socketio.Server(async_mode='eventlet',cors_allowed_origins='*')
+#                       [
+#     'http://127.0.0.1:4200',
+#     'https://btstrans-d4879.firebaseapp.com',
+#     'https://bts-dev.web.app'
+# ])
 
 states = ["disconnected", "connected", "reads", "write", "payment", "clean", "newer", "none"]
 stateIndex = 0
-lastCardUID = ''
-
-# reader = nfc.Reader()
+lastCardUID = ''    
 
 def write(r, position, number, data):
     while number >= 16:
@@ -41,28 +56,28 @@ def read_16(r, position, number):
 # write(reader, 0x01, 0x20, [0x00 for i in range(16)])
 # print(read(reader, 0x01, 0x20))
 
-@sio.event
-def connect(sid, environ, auth):
-    global stateIndex
+# @sio.event
+# def connect(sid, environ):
+#     global stateIndex
 
-    stateIndex = 1
-    sio.emit('connected', True)
-    print('connect ', sid)
+#     stateIndex = 1
+#     sio.emit('connected', True)
+#     print('connect ', sid)
 
-@sio.on('change')
-def onChange(sid, data):
-    global stateIndex, lastCardUID
-    lastCardUID = ''
-    currentState = data.split('!')
-    stateIndex = states.index(currentState[0])
-    print(stateIndex)
+# @sio.on('change')
+# def onChange(sid, data):
+#     global stateIndex, lastCardUID
+#     lastCardUID = ''
+#     currentState = data.split('!')
+#     stateIndex = states.index(currentState[0])
+#     print(stateIndex)
 
-@sio.event
-def disconnect(sid):
-    global stateIndex
+# @sio.event
+# def disconnect(sid):
+#     global stateIndex
 
-    stateIndex = 0
-    print('disconnect ', sid)
+#     stateIndex = 0
+#     print('disconnect ', sid)
 
 def listenSocketIO():
     app = socketio.WSGIApp(sio)
@@ -75,6 +90,11 @@ def listenSmartCcard():
     global stateIndex, reader
     lastError = 'initiate error message'
 
+    r = nfc.Reader()
+    if not r:
+        print("No NFC reader found")
+        return
+
     while True:
         try:
             reader.connect()
@@ -82,29 +102,29 @@ def listenSmartCcard():
             # print(toCardUID())
             # print(stateIndex)
 
-            if stateIndex == 2: # read 
-                # reader.load_authentication_data(0x01, [0x62, 0x74, 0x73, 0x34, 0x78, 0x34])
-                # reader.authentication(0x00, 0x61, 0x01)
-                # print(read(reader, 0x01, 0x20))
-                reader.led_control(0xED, 0x0A, 0x01, 0x01, 0x01)
-                # sio.emit('message', toCardUID())
+            # if stateIndex == 2: # read 
+            #     # reader.load_authentication_data(0x01, [0x62, 0x74, 0x73, 0x34, 0x78, 0x34])
+            #     # reader.authentication(0x00, 0x61, 0x01)
+            #     # print(read(reader, 0x01, 0x20))
+            #     reader.led_control(0xED, 0x0A, 0x01, 0x01, 0x01)
+            #     # sio.emit('message', toCardUID())
 
-                # change back to state none
-                stateIndex = -1
-            elif stateIndex == 3: # write
-                # reader.load_authentication_data(0x01, [0x62, 0x74, 0x73, 0x34, 0x78, 0x34])
-                # reader.authentication(0x00, 0x61, 0x01)
-                # write(reader, 0x01, 0x20, [0x00 for i in range(16)])
-                reader.led_control(0xED, 0x0A, 0x01, 0x01, 0x01)
-                # sio.emit('message', toCardUID())
+            #     # change back to state none
+            #     stateIndex = -1
+            # elif stateIndex == 3: # write
+            #     # reader.load_authentication_data(0x01, [0x62, 0x74, 0x73, 0x34, 0x78, 0x34])
+            #     # reader.authentication(0x00, 0x61, 0x01)
+            #     # write(reader, 0x01, 0x20, [0x00 for i in range(16)])
+            #     reader.led_control(0xED, 0x0A, 0x01, 0x01, 0x01)
+            #     # sio.emit('message', toCardUID())
 
-                # change back to state none
-                stateIndex = -1
-            elif stateIndex == 4: # clean/reset
-                write(reader, 0x01, 0x20, [0x00 for i in range(16)])
-                # sio.emit('message', toCardUID())
-            else:
-                stateIndex = -1
+            #     # change back to state none
+            #     stateIndex = -1
+            # elif stateIndex == 4: # payment
+            #     write(reader, 0x01, 0x20, [0x00 for i in range(16)])
+            #     # sio.emit('message', toCardUID())
+            # else:
+            #     stateIndex = -1
             #     print('none')
 
             if lastCardUID != toCardUID() and stateIndex != 4: #not paid state
@@ -116,7 +136,11 @@ def listenSmartCcard():
             # reader.reset_lights()
             if str(e) == lastError:
                 lastError = str(e)
-                print(e)
+        finally:
+            try:
+                r.disconnect()  # Ensure proper disconnection
+            except:
+                pass  # Ignore disconnect errors
 
         eventlet.sleep(0.5)
 
@@ -125,11 +149,26 @@ def main(page: ft.Page):
     global stateIndex
     
     @sio.event
-    def connect(sid, environ, auth):
+    def connect(sid, environ):
         global stateIndex
+
+        query_string = environ.get('QUERY_STRING', '')
+        token = None
+
+        if 'token=' in query_string:
+            token = query_string.split('token=')[-1].split('&')[0]  # Extract token
+
+        if token not in VALID_TOKENS:
+            print(f"Unauthorized connection attempt with token: {token}")
+            change_app_text_stat(False)
+            return False  # Reject connection
 
         stateIndex = 1
         sio.emit('connected', True)
+
+        updateMessage('connected!')
+
+        change_app_text_stat(True)
         print('connect ', sid)
 
     @sio.on('change')
@@ -138,14 +177,39 @@ def main(page: ft.Page):
         lastCardUID = ''
         currentState = data.split('!')
         stateIndex = states.index(currentState[0])
+
+        updateMessage(states[stateIndex]+' ready!')
         print(stateIndex)
+
+    @sio.on('haspaid')
+    def hasPaid(sid, data):
+
+        try:
+            p = Usb(0x04b8,0x0202)
+            p.text('BTSTrans 4x4')
+            p.text('\nNama: '+data.name)
+            p.text('\nKTA: '+data.kta)
+            p.text('\nTanggal: '+strftime("%Y-%m-%d %H:%M:%S"))
+            p.text('\nSaldo Awal: '+data.saldoAwal)
+            p.text('\nBiaya: '+data.cost)
+            p.text('\nSaldo Akhir: '+data.saldo)
+            p.text('\nTerima Kasih')
+            p.cut()
+        finally:
+            updateMessage('info: '+data+'\n\nprint out success!')
+            p.close()
 
     @sio.event
     def disconnect(sid):
         global stateIndex
 
         stateIndex = 0
+        updateMessage('disconected!')
         print('disconnect ', sid)
+
+    def updateMessage(text):
+        message_text.value = text
+        page.update()
 
     # socket io setup
     # listenSIO = threading.Thread(target = listenSocketIO)
@@ -161,53 +225,181 @@ def main(page: ft.Page):
     # reader.authentication(0x00, 0x61, 0x01)
 
     def openSite(self):
-        page.launch_url('http://localhost:4200')
+        page.launch_url('https://bts-dev.web.app')
 
-    def getContent():
-        content = [
-            ft.Text('BTS4x4 NFC App'), 
-            ft.FilledButton(content=ft.Text("Open"), on_click=openSite),
-            ft.Text('Tekan <Open> untuk membuka aplikasi bila disconnected'),
-            ft.Text('State: '+states[stateIndex])
-        ]
-        
-        return content
+    def change_app_text_stat(isConnected) :
+        status_app_text.value = "🌐 ✅" if isConnected else "🌐 ❌"
+        page.update()
 
-    page.window_width = 500
-    page.window_height = 300
-    page.window_visible = True
-    page.controls.append(ft.Container(
+    def check_nfc_status():
+        global reader
+        connected = False
+
+        try:
+            reader = nfc.Reader()
+            reader.connect()
+            status_nfc_text.value = "NFC ✅"
+            status_nfc_text.color = "white"
+            connected = True
+        except Exception:
+            status_nfc_text.value = "NFC ❌"
+            status_nfc_text.color = "red"
+            connected = False
+        page.update()
+        return connected
+
+    def check_ecspos_status():
+        global p
+        connected = False
+
+        try:
+            p = Usb(0x04b8,0x0202)
+            p.text("Hello, ESC/POS!\n")
+            p.cut()
+            status_ecspos_text.value = "🖨️ ✅"
+            status_ecspos_text.color = "white"
+            connected = True
+        except Exception:
+            status_ecspos_text.value = "🖨️ ❌"
+            status_ecspos_text.color = "red"
+            connected = False
+        page.update()    
+        return connected
+
+    async def reconnect(e):
+        e.control.content.value = "Reconnecting..."
+        e.control.update()
+
+        await asyncio.sleep(3)
+        e.control.content.value = "Find NFC Reader..."
+        e.control.update()
+        await asyncio.sleep(2)
+        if not is_nfc_reader_connected() and not check_nfc_status():
+            e.control.content.value = "NFC Reader Not Found"
+            e.control.update()
+        else:
+            e.control.content.value = "NFC Reader Found"
+            e.control.update()
+
+        await asyncio.sleep(2)
+
+        e.control.content.value = "Find ESCPOS..."
+        e.control.update()
+
+        await asyncio.sleep(2)
+        if not is_ecspos_connected() and not check_ecspos_status():
+            e.control.content.value = "ECSPOS Not Found"
+            e.control.update()
+        else:
+            e.control.content.value = "ECSPOS Found"
+            e.control.update()
+
+        await asyncio.sleep(2)
+        if not is_nfc_reader_connected() and not is_ecspos_connected():
+            e.control.content.value = "Reconnect"
+            e.control.update()
+
+        page.update()
+
+    message_text = ft.Text('test test again test again test again test again test again test again test again test again test again test again test again test again test again', size=10, color="white", weight=ft.FontWeight.W_200)
+    state_text = ft.Text('State: '+states[stateIndex])
+    status_app_text = ft.Text("🌐 ✅" if stateIndex > 0 else "🌐 ❌", size=12, color="white")
+    status_ecspos_text = ft.Text("🖨️ ✅" if is_ecspos_connected() else "🖨️ ❌", size=12, color="white")
+    status_nfc_text = ft.Text("NFC ✅" if is_nfc_reader_connected() else "NFC ❌", size=12, color="white")
+
+    page.window.width = 480
+    page.window.height = 300
+    page.window.visible = True
+    page.window.resizable = False
+    icon_path = os.path.abspath("assets/bts.ico")  # Absolute path
+    page.window.icon = icon_path  # Set the icon
+
+    # page.controls.append(ft.Container(
+    #         alignment=ft.alignment.center,
+    #         content=ft.Column(
+    #             alignment=ft.MainAxisAlignment.CENTER,
+    #             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    #             controls=[
+    #                 ft.Text('BTS4x4 NFC App', weight=ft.FontWeight.BOLD), 
+    #                 # ft.FilledButton(content=ft.Text("Reconnect"), on_click=lambda e: page.run_task(reconnect, e)),
+    #                 ft.Text('Pastikan semua status ✅ dan tidak ❌ untuk memulai, tekan reconnect untuk merubah status, bila masih ada yg tidak terkoneksi pastikan internet dan kabel usb terhubung', size=10, weight=ft.FontWeight.W_100, color="white", text_align=ft.TextAlign.CENTER),
+    #                 state_text
+    #             ]
+    #         ),
+    #         expand=True,
+    #     ))
+
+    page.add(
+        ft.Container(
             alignment=ft.alignment.center,
             content=ft.Column(
                 alignment=ft.MainAxisAlignment.CENTER,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=getContent()
+                controls=[
+                    ft.Text('BTS4x4 NFC App', weight=ft.FontWeight.BOLD), 
+                    ft.FilledButton(content=ft.Text("Reconnect"), on_click=lambda e: page.run_task(reconnect, e)),
+                    ft.Text('Pastikan semua status ✅ dan tidak ❌ untuk memulai, tekan reconnect untuk merubah status, bila masih ada yg tidak terkoneksi pastikan internet dan kabel usb terhubung', size=10, weight=ft.FontWeight.W_100, color="white", text_align=ft.TextAlign.CENTER),
+                    state_text,
+                    ft.Container(
+                        padding=ft.padding.all(4),
+                        alignment=ft.alignment.center,
+                        bgcolor='#6a6a6a',
+                        expand=True,
+                        content=ft.Column(
+                            spacing=2,
+                            alignment=ft.MainAxisAlignment.START,
+                            horizontal_alignment=ft.CrossAxisAlignment.START,
+                            controls=[
+                                ft.Container(
+                                    alignment=ft.alignment.center_left,
+                                    content=ft.Text('Console Log:', color='#9e9e9e', text_align=ft.TextAlign.LEFT, size=10, weight=ft.FontWeight.W_100)
+                                ),
+                                ft.Container(
+                                    alignment=ft.alignment.center_left,
+                                    content=message_text
+                                )
+                        ])
+                    )
+                ]
             ),
             expand=True,
-        ))
+        ),
+        ft.Row(alignment=ft.MainAxisAlignment.SPACE_BETWEEN, controls=[
+            status_app_text,
+            status_nfc_text,
+            status_ecspos_text
+        ]),
+    )
+
     page.update()
 
-    def app_lifecycle_change(e: ft.AppLifecycleStateChangeEvent):
-        print(page.controls)
-        if e.state == ft.AppLifecycleState.RESUME:
-          page.controls.pop()
-          page.update()
-          page.controls.append(ft.Container(
-            alignment=ft.alignment.center,
-            content=ft.Column(
-                alignment=ft.MainAxisAlignment.CENTER,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=getContent()
-            ),
-            expand=True,
-          ))
-          page.update()
-          print("Update UI with fresh state: "+str(stateIndex))
+    # def app_lifecycle_change(e: ft.AppLifecycleStateChangeEvent):
+    #     print(page.controls)
+    #     if e.state == ft.AppLifecycleState.RESUME:
+    #       page.controls.pop()
+    #       page.update()
+    #       page.controls.append(ft.Container(
+    #         alignment=ft.alignment.center,
+    #         content=ft.Column(
+    #             alignment=ft.MainAxisAlignment.CENTER,
+    #             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    #             controls=getContent()
+    #         ),
+    #         expand=True,
+    #       ))
+    #       page.update()
+    #       print("Update UI with fresh state: "+str(stateIndex))
     
-    page.on_app_lifecycle_state_change = app_lifecycle_change
-    sio.start_background_task(listenSmartCcard)
+    # page.on_app_lifecycle_state_change = app_lifecycle_change
+
+    # check nfc reader connect run as background task
+    try:
+        sio.start_background_task(listenSmartCcard)
+    except KeyboardInterrupt:
+        print("\nStopping card listener...")        
+
     app = socketio.WSGIApp(sio)
-    eventlet.wsgi.server(eventlet.listen(('', 3000)), app)
+    eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 3000)), app)
 
 
-ft.app(main)
+ft.app(target=main, view=ft.FLET_APP)
