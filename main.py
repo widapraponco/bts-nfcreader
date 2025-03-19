@@ -301,7 +301,7 @@ def main(page: ft.Page):
 
         page.update()
 
-    message_text = ft.Text('test test again test again test again test again test again test again test again test again test again test again test again test again test again', size=10, color="white", weight=ft.FontWeight.W_200)
+    message_text = ft.Text('', size=10, color="white", weight=ft.FontWeight.W_200)
     state_text = ft.Text('State: '+states[stateIndex])
     status_app_text = ft.Text("🌐 ✅" if stateIndex > 0 else "🌐 ❌", size=12, color="white")
     status_ecspos_text = ft.Text("🖨️ ✅" if is_ecspos_connected() else "🖨️ ❌", size=12, color="white")
@@ -394,7 +394,8 @@ def main(page: ft.Page):
 
     # check nfc reader connect run as background task
     try:
-        sio.start_background_task(listenSmartCcard)
+        if is_nfc_reader_connected():
+            sio.start_background_task(listenSmartCcard)
     except KeyboardInterrupt:
         print("\nStopping card listener...")        
 
