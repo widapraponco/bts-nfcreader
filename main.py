@@ -11,9 +11,20 @@ import os
 
 VALID_TOKENS = {"klepontech123123!"}
 
+# devices = usb.core.find(find_all=True)
+# print(devices)
+
+# # Iterate and display details
+# for device in devices:
+#     print(f"Bus {device.bus} Device {device.address}: ID {hex(device.idVendor)}:{hex(device.idProduct)}")
+
 def is_nfc_reader_connected():
-    dev = usb.core.find(idVendor=0x072F, idProduct=0x2200)
-    return dev is not None
+    try:
+        r = nfc.Reader()
+        has = r is not None
+        return has
+    except:
+        return None
 
 def is_ecspos_connected():
     dev = usb.core.find(idVendor=0x04b8, idProduct=0x0202)
@@ -83,23 +94,25 @@ def listenSocketIO():
     app = socketio.WSGIApp(sio)
     eventlet.wsgi.server(eventlet.listen(('', 3000)), app)
 
-def toCardUID():
-    return "#"+toHexString(reader.get_uid()).replace(" ", "")
+def toCardUID(r):
+    return "#"+toHexString(r.get_uid()).replace(" ", "")
 
 def listenSmartCcard():
-    global stateIndex, reader
+    global stateIndex
     lastError = 'initiate error message'
 
     r = nfc.Reader()
     if not r:
         print("No NFC reader found")
         return
+    
+    print("NFC Ready")
 
     while True:
         try:
-            reader.connect()
+            r.connect()
             # write(reader, 0x01, 0x20, [0x00 for i in range(16)])
-            # print(toCardUID())
+            # print(toCardUID(r))
             # print(stateIndex)
 
             # if stateIndex == 2: # read 
@@ -107,7 +120,7 @@ def listenSmartCcard():
             #     # reader.authentication(0x00, 0x61, 0x01)
             #     # print(read(reader, 0x01, 0x20))
             #     reader.led_control(0xED, 0x0A, 0x01, 0x01, 0x01)
-            #     # sio.emit('message', toCardUID())
+            #     # sio.emit('message', toCardUID(r))
 
             #     # change back to state none
             #     stateIndex = -1
@@ -116,21 +129,20 @@ def listenSmartCcard():
             #     # reader.authentication(0x00, 0x61, 0x01)
             #     # write(reader, 0x01, 0x20, [0x00 for i in range(16)])
             #     reader.led_control(0xED, 0x0A, 0x01, 0x01, 0x01)
-            #     # sio.emit('message', toCardUID())
+            #     # sio.emit('message', toCardUID(r))
 
             #     # change back to state none
             #     stateIndex = -1
             # elif stateIndex == 4: # payment
             #     write(reader, 0x01, 0x20, [0x00 for i in range(16)])
-            #     # sio.emit('message', toCardUID())
+            #     # sio.emit('message', toCardUID(r))
             # else:
             #     stateIndex = -1
             #     print('none')
-
-            if lastCardUID != toCardUID() and stateIndex != 4: #not paid state
-                sio.emit('message', toCardUID())
+            if lastCardUID != toCardUID(r) and stateIndex != 4: #not paid state
+                sio.emit('message', toCardUID(r))
             elif stateIndex == 4:
-                sio.emit('paid', toCardUID())
+                sio.emit('paid', toCardUID(r))
             # reader.reset_lights()
         except Exception as e:
             # reader.reset_lights()
@@ -165,6 +177,8 @@ def main(page: ft.Page):
 
         stateIndex = 1
         sio.emit('connected', True)
+
+        state_text.value = "connected"
 
         updateMessage('connected!')
 
@@ -248,23 +262,23 @@ def main(page: ft.Page):
         page.update()
         return connected
 
-    def check_ecspos_status():
-        global p
-        connected = False
+    # def check_ecspos_status():
+    #     global p
+    #     connected = False
 
-        try:
-            p = Usb(0x04b8,0x0202)
-            p.text("Hello, ESC/POS!\n")
-            p.cut()
-            status_ecspos_text.value = "🖨️ ✅"
-            status_ecspos_text.color = "white"
-            connected = True
-        except Exception:
-            status_ecspos_text.value = "🖨️ ❌"
-            status_ecspos_text.color = "red"
-            connected = False
-        page.update()    
-        return connected
+    #     try:
+    #         p = Usb(0x04b8,0x0202)
+    #         p.text("Hello, ESC/POS!\n")
+    #         p.cut()
+    #         status_ecspos_text.value = "🖨️ ✅"
+    #         status_ecspos_text.color = "white"
+    #         connected = True
+    #     except Exception:
+    #         status_ecspos_text.value = "🖨️ ❌"
+    #         status_ecspos_text.color = "red"
+    #         connected = False
+    #     page.update()    
+    #     return connected
 
     async def reconnect(e):
         e.control.content.value = "Reconnecting..."
@@ -286,25 +300,25 @@ def main(page: ft.Page):
         e.control.content.value = "Find ESCPOS..."
         e.control.update()
 
-        await asyncio.sleep(2)
-        if not is_ecspos_connected() and not check_ecspos_status():
-            e.control.content.value = "ECSPOS Not Found"
-            e.control.update()
-        else:
-            e.control.content.value = "ECSPOS Found"
-            e.control.update()
+        # await asyncio.sleep(2)
+        # if not is_ecspos_connected() and not check_ecspos_status():
+        #     e.control.content.value = "ECSPOS Not Found"
+        #     e.control.update()
+        # else:
+        #     e.control.content.value = "ECSPOS Found"
+        #     e.control.update()
 
-        await asyncio.sleep(2)
-        if not is_nfc_reader_connected() and not is_ecspos_connected():
-            e.control.content.value = "Reconnect"
-            e.control.update()
+        # await asyncio.sleep(2)
+        # if not is_nfc_reader_connected() and not is_ecspos_connected():
+        #     e.control.content.value = "Reconnect"
+        #     e.control.update()
 
         page.update()
 
     message_text = ft.Text('', size=10, color="white", weight=ft.FontWeight.W_200)
     state_text = ft.Text('State: '+states[stateIndex])
     status_app_text = ft.Text("🌐 ✅" if stateIndex > 0 else "🌐 ❌", size=12, color="white")
-    status_ecspos_text = ft.Text("🖨️ ✅" if is_ecspos_connected() else "🖨️ ❌", size=12, color="white")
+    # status_ecspos_text = ft.Text("🖨️ ✅" if is_ecspos_connected() else "🖨️ ❌", size=12, color="white")
     status_nfc_text = ft.Text("NFC ✅" if is_nfc_reader_connected() else "NFC ❌", size=12, color="white")
 
     page.window.width = 480
@@ -367,7 +381,7 @@ def main(page: ft.Page):
         ft.Row(alignment=ft.MainAxisAlignment.SPACE_BETWEEN, controls=[
             status_app_text,
             status_nfc_text,
-            status_ecspos_text
+            # status_ecspos_text
         ]),
     )
 
@@ -394,8 +408,7 @@ def main(page: ft.Page):
 
     # check nfc reader connect run as background task
     try:
-        if is_nfc_reader_connected():
-            sio.start_background_task(listenSmartCcard)
+        sio.start_background_task(listenSmartCcard)
     except KeyboardInterrupt:
         print("\nStopping card listener...")        
 
