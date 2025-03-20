@@ -11,17 +11,17 @@ import os
 VALID_TOKENS = {"klepontech123123!"}
 task_running = False
 running = True  # Flag to control the loop
+reader = None
 
 def is_nfc_reader_connected():
-    r = None
     try: 
-        r = nfc.Reader()
-        return r is not None
+        if reader:
+            return True
+        else:
+            reader = nfc.Reader()
+            return reader is not None
     except:
-        return None
-    finally:
-        if r:
-            r.close()
+        return False
 
 def is_ecspos_connected():
     try:
@@ -31,11 +31,11 @@ def is_ecspos_connected():
     except:
         return False  # Printer not connected
     finally:
-        try:
-            if p:
+        if p:
+            try:
                 p.close()  # Close only if it was initialized
-        except:
-            pass  # Ignore any errors while closing
+            except:
+                pass  # Ignore any errors while closing
 
 sio = socketio.Server(async_mode='eventlet',cors_allowed_origins='*')
 #                       [
@@ -84,12 +84,10 @@ def toCardUID(r):
 def listenSmartCard():
     global stateIndex, running
     lastError = 'initiate error message'
-
-    r = nfc.Reader()
     
     while running:
         try:
-            r.connect()
+            reader.connect()
             # write(reader, 0x01, 0x20, [0x00 for i in range(16)])
             # print(toCardUID(r))
             # print(stateIndex)
@@ -118,20 +116,20 @@ def listenSmartCard():
             # else:
             #     stateIndex = -1
             #     print('none')
-            if lastCardUID != toCardUID(r) and stateIndex != 4: #not paid state
-                sio.emit('message', toCardUID(r))
+            if lastCardUID != toCardUID(reader) and stateIndex != 4: #not paid state
+                sio.emit('message', toCardUID(reader))
             elif stateIndex == 4:
-                sio.emit('paid', toCardUID(r))
+                sio.emit('paid', toCardUID(reader))
             # reader.reset_lights()
         except Exception as e:
             # reader.reset_lights()
             if str(e) == lastError:
                 lastError = str(e)
-        finally:
-            try:
-                r.disconnect()  # Ensure proper disconnection
-            except:
-                pass  # Ignore disconnect errors
+        # finally:
+        #     try:
+        #         reader.disconnect()  # Ensure proper disconnection
+        #     except:
+        #         pass  # Ignore disconnect errors
 
         eventlet.sleep(0.5)
 
