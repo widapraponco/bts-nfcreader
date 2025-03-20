@@ -130,6 +130,7 @@ def listenSmartCard():
             # reader.reset_lights()
         except Exception as e:
             # reader.reset_lights()
+            lastCardUID = ''
             print(str(e))
             if str(e) == lastError:
                 lastError = str(e)
