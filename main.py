@@ -11,8 +11,8 @@ import os
 
 VALID_TOKENS = {"klepontech123123!"}
 
-devices = usb.core.find(find_all=True)
-print(devices)
+# devices = usb.core.find(find_all=True)
+# print(devices)
 
 # # Iterate and display details
 # for device in devices:
