@@ -21,7 +21,7 @@ def is_nfc_reader_connected():
         return None
     finally:
         if r:
-            r.disconnect()
+            r.close()
 
 def is_ecspos_connected():
     try:
