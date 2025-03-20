@@ -11,8 +11,8 @@ import os
 
 VALID_TOKENS = {"klepontech123123!"}
 
-# devices = usb.core.find(find_all=True)
-# print(devices)
+devices = usb.core.find(find_all=True)
+print(devices)
 
 # # Iterate and display details
 # for device in devices:
@@ -262,23 +262,23 @@ def main(page: ft.Page):
         page.update()
         return connected
 
-    # def check_ecspos_status():
-    #     global p
-    #     connected = False
+    def check_ecspos_status():
+        global p
+        connected = False
 
-    #     try:
-    #         p = Usb(0x04b8,0x0202)
-    #         p.text("Hello, ESC/POS!\n")
-    #         p.cut()
-    #         status_ecspos_text.value = "🖨️ ✅"
-    #         status_ecspos_text.color = "white"
-    #         connected = True
-    #     except Exception:
-    #         status_ecspos_text.value = "🖨️ ❌"
-    #         status_ecspos_text.color = "red"
-    #         connected = False
-    #     page.update()    
-    #     return connected
+        try:
+            p = Usb(0x04b8,0x0202)
+            p.text("Hello, ESC/POS!\n")
+            p.cut()
+            status_ecspos_text.value = "🖨️ ✅"
+            status_ecspos_text.color = "white"
+            connected = True
+        except Exception:
+            status_ecspos_text.value = "🖨️ ❌"
+            status_ecspos_text.color = "red"
+            connected = False
+        page.update()    
+        return connected
 
     async def reconnect(e):
         e.control.content.value = "Reconnecting..."
@@ -300,25 +300,25 @@ def main(page: ft.Page):
         e.control.content.value = "Find ESCPOS..."
         e.control.update()
 
-        # await asyncio.sleep(2)
-        # if not is_ecspos_connected() and not check_ecspos_status():
-        #     e.control.content.value = "ECSPOS Not Found"
-        #     e.control.update()
-        # else:
-        #     e.control.content.value = "ECSPOS Found"
-        #     e.control.update()
+        await asyncio.sleep(2)
+        if not is_ecspos_connected() and not check_ecspos_status():
+            e.control.content.value = "ECSPOS Not Found"
+            e.control.update()
+        else:
+            e.control.content.value = "ECSPOS Found"
+            e.control.update()
 
-        # await asyncio.sleep(2)
-        # if not is_nfc_reader_connected() and not is_ecspos_connected():
-        #     e.control.content.value = "Reconnect"
-        #     e.control.update()
+        await asyncio.sleep(2)
+        if not is_nfc_reader_connected() and not is_ecspos_connected():
+            e.control.content.value = "Reconnect"
+            e.control.update()
 
         page.update()
 
     message_text = ft.Text('', size=10, color="white", weight=ft.FontWeight.W_200)
     state_text = ft.Text('State: '+states[stateIndex])
     status_app_text = ft.Text("🌐 ✅" if stateIndex > 0 else "🌐 ❌", size=12, color="white")
-    # status_ecspos_text = ft.Text("🖨️ ✅" if is_ecspos_connected() else "🖨️ ❌", size=12, color="white")
+    status_ecspos_text = ft.Text("🖨️ ✅" if is_ecspos_connected() else "🖨️ ❌", size=12, color="white")
     status_nfc_text = ft.Text("NFC ✅" if is_nfc_reader_connected() else "NFC ❌", size=12, color="white")
 
     page.window.width = 480
