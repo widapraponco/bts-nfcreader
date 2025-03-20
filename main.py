@@ -83,7 +83,7 @@ def toCardUID(r):
     return "#"+toHexString(r.get_uid()).replace(" ", "")
 
 def listenSmartCard():
-    global stateIndex, running, reader
+    global stateIndex, running, reader, lastCardUID
     lastError = 'initiate error message'
     
     while running:
