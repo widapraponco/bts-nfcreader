@@ -14,6 +14,7 @@ running = True  # Flag to control the loop
 reader = None
 
 def is_nfc_reader_connected():
+    global reader
     try: 
         if reader:
             return True
@@ -82,7 +83,7 @@ def toCardUID(r):
     return "#"+toHexString(r.get_uid()).replace(" ", "")
 
 def listenSmartCard():
-    global stateIndex, running
+    global stateIndex, running, reader
     lastError = 'initiate error message'
     
     while running:
@@ -116,13 +117,17 @@ def listenSmartCard():
             # else:
             #     stateIndex = -1
             #     print('none')
-            if lastCardUID != toCardUID(reader) and stateIndex != 4: #not paid state
-                sio.emit('message', toCardUID(reader))
+            cardUID = toCardUID(reader)
+            if lastCardUID != cardUID and stateIndex != 4: #not paid state
+                sio.emit('message', cardUID)
+                lastCardUID = cardUID
             elif stateIndex == 4:
-                sio.emit('paid', toCardUID(reader))
+                sio.emit('paid', cardUID)
+                lastCardUID = cardUID
             # reader.reset_lights()
         except Exception as e:
             # reader.reset_lights()
+            print(str(e))
             if str(e) == lastError:
                 lastError = str(e)
         # finally:
