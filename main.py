@@ -19,12 +19,14 @@ VALID_TOKENS = {"klepontech123123!"}
 #     print(f"Bus {device.bus} Device {device.address}: ID {hex(device.idVendor)}:{hex(device.idProduct)}")
 
 def is_nfc_reader_connected():
-    try:
-        r = nfc.Reader()
-        has = r is not None
-        return has
-    except:
-        return None
+    dev = usb.core.find(idVendor=0x072F, idProduct=0x2200)
+    return dev is not None
+    # try:
+    #     r = nfc.Reader()
+    #     has = r is not None
+    #     return has
+    # except:
+    #     return None
 
 def is_ecspos_connected():
     dev = usb.core.find(idVendor=0x04b8, idProduct=0x0202)
@@ -101,13 +103,11 @@ def listenSmartCcard():
     global stateIndex
     lastError = 'initiate error message'
 
-    r = nfc.Reader()
-    if not r:
-        print("No NFC reader found")
-        return
+    try: 
+        r = nfc.Reader()
+    except:
+        raise Exception("No NFC Reader")
     
-    print("NFC Ready")
-
     while True:
         try:
             r.connect()
@@ -250,8 +250,7 @@ def main(page: ft.Page):
         connected = False
 
         try:
-            reader = nfc.Reader()
-            reader.connect()
+            sio.start_background_task(listenSmartCcard)
             status_nfc_text.value = "NFC ✅"
             status_nfc_text.color = "white"
             connected = True
@@ -407,10 +406,11 @@ def main(page: ft.Page):
     # page.on_app_lifecycle_state_change = app_lifecycle_change
 
     # check nfc reader connect run as background task
-    try:
-        sio.start_background_task(listenSmartCcard)
-    except KeyboardInterrupt:
-        print("\nStopping card listener...")        
+    if is_nfc_reader_connected():
+        try:
+            sio.start_background_task(listenSmartCcard)
+        except KeyboardInterrupt:
+            print("\nStopping card listener...")        
 
     app = socketio.WSGIApp(sio)
     eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 3000)), app)
