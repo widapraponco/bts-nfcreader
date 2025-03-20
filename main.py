@@ -381,7 +381,7 @@ def main(page: ft.Page):
         ft.Row(alignment=ft.MainAxisAlignment.SPACE_BETWEEN, controls=[
             status_app_text,
             status_nfc_text,
-            # status_ecspos_text
+            status_ecspos_text
         ]),
     )
 
