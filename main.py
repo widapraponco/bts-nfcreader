@@ -1,5 +1,4 @@
 import flet as ft
-import usb.core
 from py122u import nfc
 import socketio
 import eventlet
@@ -10,27 +9,33 @@ import asyncio
 import os
 
 VALID_TOKENS = {"klepontech123123!"}
-
-# devices = usb.core.find(find_all=True)
-# print(devices)
-
-# # Iterate and display details
-# for device in devices:
-#     print(f"Bus {device.bus} Device {device.address}: ID {hex(device.idVendor)}:{hex(device.idProduct)}")
+task_running = False
+running = True  # Flag to control the loop
 
 def is_nfc_reader_connected():
-    dev = usb.core.find(idVendor=0x072F, idProduct=0x2200)
-    return dev is not None
-    # try:
-    #     r = nfc.Reader()
-    #     has = r is not None
-    #     return has
-    # except:
-    #     return None
+    r = None
+    try: 
+        r = nfc.Reader()
+        return r is not None
+    except:
+        return None
+    finally:
+        if r:
+            r.disconnect()
 
 def is_ecspos_connected():
-    dev = usb.core.find(idVendor=0x04b8, idProduct=0x0202)
-    return dev is not None
+    try:
+        p = Usb(0x04b8, 0x0202)
+        p.text('ESCS POS Works!')
+        return True  # Printer successfully connected
+    except:
+        return False  # Printer not connected
+    finally:
+        try:
+            if p:
+                p.close()  # Close only if it was initialized
+        except:
+            pass  # Ignore any errors while closing
 
 sio = socketio.Server(async_mode='eventlet',cors_allowed_origins='*')
 #                       [
@@ -69,29 +74,6 @@ def read_16(r, position, number):
 # write(reader, 0x01, 0x20, [0x00 for i in range(16)])
 # print(read(reader, 0x01, 0x20))
 
-# @sio.event
-# def connect(sid, environ):
-#     global stateIndex
-
-#     stateIndex = 1
-#     sio.emit('connected', True)
-#     print('connect ', sid)
-
-# @sio.on('change')
-# def onChange(sid, data):
-#     global stateIndex, lastCardUID
-#     lastCardUID = ''
-#     currentState = data.split('!')
-#     stateIndex = states.index(currentState[0])
-#     print(stateIndex)
-
-# @sio.event
-# def disconnect(sid):
-#     global stateIndex
-
-#     stateIndex = 0
-#     print('disconnect ', sid)
-
 def listenSocketIO():
     app = socketio.WSGIApp(sio)
     eventlet.wsgi.server(eventlet.listen(('', 3000)), app)
@@ -99,16 +81,13 @@ def listenSocketIO():
 def toCardUID(r):
     return "#"+toHexString(r.get_uid()).replace(" ", "")
 
-def listenSmartCcard():
-    global stateIndex
+def listenSmartCard():
+    global stateIndex, running
     lastError = 'initiate error message'
 
-    try: 
-        r = nfc.Reader()
-    except:
-        raise Exception("No NFC Reader")
+    r = nfc.Reader()
     
-    while True:
+    while running:
         try:
             r.connect()
             # write(reader, 0x01, 0x20, [0x00 for i in range(16)])
@@ -178,7 +157,7 @@ def main(page: ft.Page):
         stateIndex = 1
         sio.emit('connected', True)
 
-        state_text.value = "connected"
+        state_text.value = "State: connected"
 
         updateMessage('connected!')
 
@@ -215,9 +194,13 @@ def main(page: ft.Page):
 
     @sio.event
     def disconnect(sid):
-        global stateIndex
+        global stateIndex, running
 
         stateIndex = 0
+        running = False  # Stop the NFC loop
+
+        state_text.value = 'State: disconnected'
+
         updateMessage('disconected!')
         print('disconnect ', sid)
 
@@ -231,7 +214,7 @@ def main(page: ft.Page):
     # listenSIO.start()
 
     # listening card
-    # listenReader = threading.Thread(target = listenSmartCcard)
+    # listenReader = threading.Thread(target = listenSmartCard)
     # listenReader.daemon = True
     # listenReader.start()
 
@@ -246,11 +229,16 @@ def main(page: ft.Page):
         page.update()
 
     def check_nfc_status():
-        global reader
-        connected = False
+        global task_running
+        if task_running:
+            return False  # Already running, no need to start another
 
         try:
-            sio.start_background_task(listenSmartCcard)
+            if is_nfc_reader_connected() is None:
+                return False
+            
+            task_running = True
+            sio.start_background_task(listenSmartCard)
             status_nfc_text.value = "NFC ✅"
             status_nfc_text.color = "white"
             connected = True
@@ -308,8 +296,11 @@ def main(page: ft.Page):
             e.control.update()
 
         await asyncio.sleep(2)
-        if not is_nfc_reader_connected() and not is_ecspos_connected():
+        if not is_nfc_reader_connected() or not is_ecspos_connected():
             e.control.content.value = "Reconnect"
+            e.control.update()
+        else:
+            e.control.content.value = "Connected"
             e.control.update()
 
         page.update()
@@ -386,31 +377,9 @@ def main(page: ft.Page):
 
     page.update()
 
-    # def app_lifecycle_change(e: ft.AppLifecycleStateChangeEvent):
-    #     print(page.controls)
-    #     if e.state == ft.AppLifecycleState.RESUME:
-    #       page.controls.pop()
-    #       page.update()
-    #       page.controls.append(ft.Container(
-    #         alignment=ft.alignment.center,
-    #         content=ft.Column(
-    #             alignment=ft.MainAxisAlignment.CENTER,
-    #             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-    #             controls=getContent()
-    #         ),
-    #         expand=True,
-    #       ))
-    #       page.update()
-    #       print("Update UI with fresh state: "+str(stateIndex))
-    
-    # page.on_app_lifecycle_state_change = app_lifecycle_change
-
     # check nfc reader connect run as background task
-    if is_nfc_reader_connected():
-        try:
-            sio.start_background_task(listenSmartCcard)
-        except KeyboardInterrupt:
-            print("\nStopping card listener...")        
+    check_nfc_status()
+    check_ecspos_status()
 
     app = socketio.WSGIApp(sio)
     eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 3000)), app)
