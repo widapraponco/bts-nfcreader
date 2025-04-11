@@ -149,7 +149,9 @@ def main(page: ft.Page):
     
     @sio.event
     def connect(sid, environ):
-        global stateIndex
+        global stateIndex, running
+
+        running = True
 
         query_string = environ.get('QUERY_STRING', '')
         token = None
