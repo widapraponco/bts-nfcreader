@@ -118,6 +118,7 @@ def listenSmartCard():
             #     stateIndex = -1
             #     print('none')
             cardUID = toCardUID(reader)
+            print(cardUID)
             if lastCardUID != cardUID :
                 if stateIndex != 4: #not paid state
                     sio.emit('message', cardUID)
