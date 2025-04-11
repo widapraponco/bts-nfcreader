@@ -173,6 +173,7 @@ def main(page: ft.Page):
 
         change_app_text_stat(True)
         print('connect ', sid)
+        sio.start_background_task(listenSmartCard)
 
     @sio.on('change')
     def onChange(sid, data):
@@ -248,7 +249,7 @@ def main(page: ft.Page):
                 return False
             
             task_running = True
-            sio.start_background_task(listenSmartCard)
+            # sio.start_background_task(listenSmartCard)
             status_nfc_text.value = "NFC ✅"
             status_nfc_text.color = "white"
             connected = True
